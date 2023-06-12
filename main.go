@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -79,7 +78,7 @@ func main() {
 			if err != nil {
 				log.Fatal("huh?")
 			}
-			err = ioutil.WriteFile("db/response", b, 0644)
+			err = os.WriteFile("db/response", b, 0644)
 			if err != nil {
 				log.Fatal(err)
 			}
