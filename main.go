@@ -3,12 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"regexp"
 
+	"github.com/elazarl/dropstep/addomains"
 	"github.com/elazarl/goproxy"
 )
 
@@ -35,64 +38,55 @@ func main() {
 		log.Fatal("could not create log file", err)
 	}
 
-	// proxy.OnRequest(goproxy.ReqHostMatches(regexp.MustCompile("^.*cbc.ca.*$"))).HijackConnect(func(req *http.Request, client net.Conn, ctx *goproxy.ProxyCtx) {
-	// 	defer func() {
-	// 		if e := recover(); e != nil {
-	// 			ctx.Logf("error connecting to remote: %v", e)
-	// 			client.Write([]byte("HTTP/1.1 500 Cannot reach destination\r\n\r\n"))
-	// 		}
-	// 		client.Close()
-	// 	}()
-
-	// 	fmt.Fprintf(logfile, "CBC HWLLOW %s\n", req.URL.String())
-	// 	client.Write([]byte("HTTP/1.1 200 Ok\r\n\r\n"))
-
-	// 	clientBuf := bufio.NewReadWriter(bufio.NewReader(client), bufio.NewWriter(client))
-
-	// 	remote, err := net.Dial("tcp", req.URL.Host)
-	// 	if err != nil {
-	// 		log.Fatalf("could not dial the remote host %v\n", err)
-	// 	}
-
-	// 	remoteBuf := bufio.NewReadWriter(bufio.NewReader(remote), bufio.NewWriter(remote))
-
-	// 	for {
-	// 		request, err := http.ReadRequest(clientBuf.Reader)
-	// 		if err != nil {
-	// 			log.Fatalf("could not read the request %v\n", err)
-	// 		}
-
-	// 		err = request.Write(remoteBuf)
-	// 		if err != nil {
-	// 			log.Fatal("could not write the request to the buffer")
-	// 		}
-
-	// 		err = remoteBuf.Flush()
-	// 		if err != nil {
-	// 			log.Fatal("could not flush the remote buffer")
-	// 		}
-
-	// 		response, err := http.ReadResponse(remoteBuf.Reader, request)
-	// 		if err != nil {
-	// 			log.Fatal("could not read response from remote buffer")
-	// 		}
-
-	// 		err = response.Write(clientBuf.Writer)
-	// 		if err != nil {
-	// 			log.Fatal("could not write to the client buffer")
-	// 		}
-
-	// 		err = clientBuf.Flush()
-	// 		if err != nil {
-	// 			log.Fatal("could not flush client buffer")
-	// 		}
-	// 	}
-	// })
-
 	proxy.OnRequest(goproxy.ReqHostMatches(regexp.MustCompile("^.*$"))).HandleConnect(goproxy.AlwaysMitm)
 
+	// Initialize ad domain database
+	adDb := addomains.NewAdDomains()
+	err = adDb.GetAdDomains()
+	if err != nil {
+		log.Fatalln("could not obtain ad domain list on startup", err)
+	}
+
+	go func() {
+		for range adDb.Ticker.C {
+			err := adDb.GetAdDomains()
+			if err != nil {
+				log.Printf("%v", err)
+			}
+			log.Println("ad domain refresh")
+		}
+	}()
+
 	proxy.OnResponse().DoFunc(func(response *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
-		fmt.Fprintf(logfile, "Hellow? %s\n", response.Request.URL)
+		adDb.Requests += 1
+		if adDb.Requests%addomains.RequestsUntilUpdate == 0 {
+			adDb.GetAdDomains()
+		}
+
+		// log.Println(response.Request.Host)
+		// host, _, err := net.SplitHostPort(response.Request.Host)
+		// if err != nil {
+		// 	log.Fatal("could not split the request network address into host and port")
+		// }
+
+		adDb.RwLock.RLock()
+		_, isAdDomain := adDb.AdDomains[response.Request.Host]
+		adDb.RwLock.RUnlock()
+
+		if isAdDomain {
+			fmt.Fprintf(logfile, "%s\n", response.Request.URL)
+			b, err := httputil.DumpResponse(response, true)
+			if err != nil {
+				log.Fatal("huh?")
+			}
+			err = ioutil.WriteFile("db/response", b, 0644)
+			if err != nil {
+				log.Fatal(err)
+			}
+			return goproxy.NewResponse(response.Request,
+				goproxy.ContentTypeText, http.StatusAccepted,
+				"Don't waste your time!")
+		}
 		return response
 	})
 
