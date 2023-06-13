@@ -8,10 +8,12 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"path/filepath"
 	"regexp"
 
 	"github.com/elazarl/dropstep/addomains"
 	"github.com/elazarl/goproxy"
+	"github.com/google/uuid"
 )
 
 const (
@@ -56,17 +58,16 @@ func main() {
 		}
 	}()
 
+	err = os.MkdirAll("db", 0755)
+	if err != nil {
+		log.Fatalln("could not create db directory", err)
+	}
+
 	proxy.OnResponse().DoFunc(func(response *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
 		adDb.Requests += 1
 		if adDb.Requests%addomains.RequestsUntilUpdate == 0 {
 			adDb.GetAdDomains()
 		}
-
-		// log.Println(response.Request.Host)
-		// host, _, err := net.SplitHostPort(response.Request.Host)
-		// if err != nil {
-		// 	log.Fatal("could not split the request network address into host and port")
-		// }
 
 		adDb.RwLock.RLock()
 		_, isAdDomain := adDb.AdDomains[response.Request.Host]
@@ -76,16 +77,25 @@ func main() {
 			fmt.Fprintf(logfile, "%s\n", response.Request.URL)
 			b, err := httputil.DumpResponse(response, true)
 			if err != nil {
-				log.Fatal("huh?")
+				log.Fatalln("error dumping response", err)
 			}
-			err = os.WriteFile("db/response", b, 0644)
+
+			uniqueId := uuid.NewString()
+
+			uniqueDir := filepath.Join("db", uniqueId[0:2], uniqueId[0:4])
+
+			err = os.MkdirAll(uniqueDir, 0755)
+			if err != nil {
+				log.Fatalf("could not create unique directory %s: %v\n", uniqueDir, err)
+			}
+
+			err = os.WriteFile(filepath.Join(uniqueDir, uniqueId), b, 0644)
 			if err != nil {
 				log.Fatal(err)
 			}
-			return goproxy.NewResponse(response.Request,
-				goproxy.ContentTypeText, http.StatusAccepted,
-				"Don't waste your time!")
+			return goproxy.NewResponse(response.Request, goproxy.ContentTypeText, http.StatusOK, "your ad here")
 		}
+
 		return response
 	})
 
@@ -94,7 +104,6 @@ func main() {
 		log.Fatal("listen:", err)
 	}
 
-	log.Println("Starting Proxy")
+	log.Println("starting proxy ...")
 	http.Serve(listener, proxy)
-	log.Println("All connections closed - exit")
 }
