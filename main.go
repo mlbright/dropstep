@@ -17,7 +17,9 @@ import (
 )
 
 const (
-	logFileName = "ad-traffic.log"
+	logFileName     = "ad-traffic.log"
+	certFileDefault = "~/Library/Application Support/mkcert/rootCA.pem"
+	keyFileDefault  = "~/Library/Application Support/mkcert/rootCA-key.pem"
 )
 
 func main() {
@@ -25,9 +27,31 @@ func main() {
 
 	verbose := flag.Bool("v", false, "should every proxy request be logged to stdout")
 	addr := flag.String("l", ":8080", "on which address should the proxy listen")
+	certfile := flag.String("c", certFileDefault, "TLS CA certificate file")
+	keyfile := flag.String("k", keyFileDefault, "TLS CA certificate key file")
 	flag.Parse()
 
-	err := setCA(nil, nil)
+	cf, err := addHomeDir(*certfile)
+	if err != nil {
+		log.Fatalln("could not add home dir to ", *certfile)
+	}
+
+	caCert, err := os.ReadFile(cf)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	kf, err := addHomeDir(*keyfile)
+	if err != nil {
+		log.Fatalln("could not add home dir to ", *keyfile)
+	}
+
+	caKey, err := os.ReadFile(kf)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	err = setCA(caCert, caKey)
 	if err != nil {
 		log.Fatal("could not handle local certs", err)
 	}

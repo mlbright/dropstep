@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
@@ -11,32 +10,8 @@ import (
 	"github.com/elazarl/goproxy"
 )
 
-const (
-	certFileDefault = "~/Library/Application Support/mkcert/rootCA.pem"
-	keyFileDefault  = "~/Library/Application Support/mkcert/rootCA-key.pem"
-)
-
 func setCA(caCert, caKey []byte) error {
 	var err error
-	if caCert == nil || caKey == nil {
-		certfile, err := addHomeDir(certFileDefault)
-		if err != nil {
-			return err
-		}
-		caCert, err = os.ReadFile(certfile)
-		if err != nil {
-			return err
-		}
-
-		keyfile, err := addHomeDir(keyFileDefault)
-		if err != nil {
-			return err
-		}
-		caKey, err = os.ReadFile(keyfile)
-		if err != nil {
-			return err
-		}
-	}
 	goproxyCa, err := tls.X509KeyPair(caCert, caKey)
 	if err != nil {
 		return err
