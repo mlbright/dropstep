@@ -21,6 +21,6 @@
 go.work
 
 /dropstep
-/traffic.log
+/ad-traffic.log
 /ad-domains.txt
 /db

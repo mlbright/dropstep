@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	logFileName = "traffic.log"
+	logFileName = "ad-traffic.log"
 )
 
 func main() {
@@ -81,7 +81,6 @@ func main() {
 			}
 
 			uniqueId := uuid.NewString()
-
 			uniqueDir := filepath.Join("db", uniqueId[0:2], uniqueId[0:4])
 
 			err = os.MkdirAll(uniqueDir, 0755)
@@ -93,6 +92,7 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
+
 			return goproxy.NewResponse(response.Request, goproxy.ContentTypeText, http.StatusOK, "your ad here")
 		}
 
