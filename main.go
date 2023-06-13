@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/elazarl/dropstep/addomains"
 	"github.com/elazarl/goproxy"
 	"github.com/google/uuid"
+	"github.com/mlbright/dropstep/addomains"
 )
 
 const (
