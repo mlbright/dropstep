@@ -105,11 +105,13 @@ func main() {
 			}
 
 			uniqueId := uuid.NewString()
-			uniqueDir := filepath.Join("db", uniqueId[0:2], uniqueId[0:4])
+			uniqueDir := filepath.Join("db", uniqueId[0:2], uniqueId[2:4])
 
 			err = os.MkdirAll(uniqueDir, 0755)
 			if err != nil {
 				log.Fatalf("could not create unique directory %s: %v\n", uniqueDir, err)
+			} else {
+				log.Printf("created %s if it did not exist", uniqueDir)
 			}
 
 			err = os.WriteFile(filepath.Join(uniqueDir, uniqueId), b, 0644)
